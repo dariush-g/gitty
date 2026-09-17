@@ -11,8 +11,18 @@ public class Git {
             case "init":
                 init();
             case "add":
+                if (args.length < 2) {
+                    System.out.println("add needs parameter");
+                    return;
+                }
+                add(args[1]);
             case "commit":
         }
+    }
+
+    void add(String file_name) throws IOException {
+        var hash = FileHasher.hashFile(file_name);
+        Files.write(Path.of("./git/objects/" + hash), Files.readAllBytes(Paths.get(file_name)));
     }
 
     void init() throws IOException {
@@ -24,7 +34,7 @@ public class Git {
             Files.createDirectories(path);
             System.out.println("Initialized empty Gitty repository in " + currentPath);
             Files.createDirectories(Paths.get("./git/objects/"));
-            Files.createDirectories(Paths.get("./git/index/"));
+            Files.createFile(Paths.get("./git/index/"));
             Files.createFile(Paths.get("./git/HEAD"));
         }
     }
