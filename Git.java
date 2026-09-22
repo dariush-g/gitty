@@ -2,6 +2,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 
 public class Git {
     void main(String[] args) throws IOException {
@@ -21,12 +22,14 @@ public class Git {
             case "commit":
                 break;
         }
+
+        System.out.println();
     }
 
     void add(String file_name) throws IOException {
         var hash = FileHasher.hashFile(file_name);
         Files.write(Path.of("./git/objects/" + hash), Files.readAllBytes(Paths.get(file_name)));
-        Files.writeString(Path.of("./git/index"), hash + " " + file_name);
+        Files.writeString(Path.of("./git/index"), hash + " " + file_name + "\n", StandardOpenOption.APPEND);
     }
 
     void init() throws IOException {
