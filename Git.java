@@ -26,6 +26,7 @@ public class Git {
     void add(String file_name) throws IOException {
         var hash = FileHasher.hashFile(file_name);
         Files.write(Path.of("./git/objects/" + hash), Files.readAllBytes(Paths.get(file_name)));
+        Files.writeString(Path.of("./git/index"), hash + " " + file_name);
     }
 
     void init() throws IOException {
