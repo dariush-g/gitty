@@ -19,6 +19,7 @@ public class Git {
                 add(args[1]);
                 break;
             case "commit":
+                break;
         }
     }
 
