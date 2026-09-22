@@ -32,7 +32,7 @@ public class Git {
     void init() throws IOException {
         Path path = Paths.get("git/");
         Path objects = Paths.get("./git/objects/");
-        Path index = Paths.get("./git/index");
+        Path index = Paths.get("./git/INDEX");
         Path head = Paths.get("./git/HEAD");
         String currentPath = System.getProperty("user.dir");
 
