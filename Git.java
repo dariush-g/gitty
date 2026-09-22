@@ -10,12 +10,14 @@ public class Git {
         switch (args[0]) {
             case "init":
                 init();
+                break;
             case "add":
                 if (args.length < 2) {
                     System.out.println("add needs parameter");
                     return;
                 }
                 add(args[1]);
+                break;
             case "commit":
         }
     }
@@ -27,15 +29,20 @@ public class Git {
 
     void init() throws IOException {
         Path path = Paths.get("git/");
+        Path objects = Paths.get("./git/objects/");
+        Path index = Paths.get("./git/index");
+        Path head = Paths.get("./git/HEAD");
         String currentPath = System.getProperty("user.dir");
-        if (Files.isDirectory(path))
-            System.out.println("Reitialized empty Gitty repository in " + currentPath);
+
+        if (Files.isDirectory(path) && Files.isDirectory(objects) && Files.exists(index)
+                && Files.exists(head))
+            System.out.println("Reitialized Gitty repository in " + currentPath);
         else {
             Files.createDirectories(path);
             System.out.println("Initialized empty Gitty repository in " + currentPath);
-            Files.createDirectories(Paths.get("./git/objects/"));
-            Files.createFile(Paths.get("./git/index/"));
-            Files.createFile(Paths.get("./git/HEAD"));
+            Files.createDirectories(objects);
+            Files.createFile(index);
+            Files.createFile(head);
         }
     }
 }

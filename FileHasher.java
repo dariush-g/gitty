@@ -21,7 +21,7 @@ public class FileHasher {
         var read = Files.readAllBytes(Path.of(filePath));
 
         try {
-            var digest = MessageDigest.getInstance("SHA-256");
+            var digest = MessageDigest.getInstance("SHA-1");
             var encoded = digest.digest(read);
             String hexString = bytesToHex(encoded);
             return hexString;
