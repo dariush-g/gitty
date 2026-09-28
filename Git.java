@@ -22,17 +22,43 @@ public class Git {
             case "commit":
                 break;
         }
+        System.out.println();
     }
 
-    void add(String file_name) throws IOException {
-        var hash = FileHasher.hashFile(file_name);
+    void add(String path_to_add) throws IOException {
+        var hash = FileHasher.hashFile(path_to_add);
         var path = Path.of("./git/objects/" + hash);
-        if (Files.exists(path)) {
 
+        var hashes_files = Files.readAllLines(Path.of("./git/index")).stream().map(line -> {
+            var split = line.split(" ");
+            if (split.length != 2) {
+                System.err.println("error parsing index");
+                System.exit(1);
+            }
+            return split;
+        }).toList();
+
+        boolean exists = false;
+
+        for (var hash_file : hashes_files) {
+            var file = hash_file[1];
+            if (path_to_add.equals(file)) {
+                hash_file[0] = hash;
+                exists = true;
+            }
         }
-        Files.write(path, Files.readAllBytes(Paths.get(file_name)));
-        Files.writeString(Path.of("./git/index"), hash + " " + file_name + "\n",
-                StandardOpenOption.APPEND);
+
+        if (!exists) {
+            Files.write(path, Files.readAllBytes(Paths.get(path_to_add)));
+            Files.writeString(Path.of("./git/INDEX"), hash + " " + path_to_add + "\n",
+                    StandardOpenOption.APPEND);
+        } else {
+            Files.write(path, Files.readAllBytes(Paths.get(path_to_add)));
+            var builder = new StringBuilder();
+            for (var hash_file : hashes_files)
+                builder.append(hash_file[0] + " " + hash_file[1] + "\n");
+            Files.writeString(Path.of("./git/INDEX"), builder.toString());
+        }
     }
 
     void init() throws IOException {
