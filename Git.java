@@ -220,10 +220,10 @@ public class Git {
         while (br.ready()) {
             String newLine = br.readLine();
             // identifies what is path and what is hash and rearranges with path first so
-            // easirr to sort later
+            // easier to sort later
             String[] splits = newLine.split(" ");
-            String filePath = splits[2];
-            String hash = splits[1];
+            String filePath = splits[1];
+            String hash = splits[0];
             String type = "blob";
             workingList.add(filePath + " " + type + " " + hash);
         }
@@ -265,7 +265,7 @@ public class Git {
         }
 
         // finds hash of the directory
-        String treeHash = createTree(deepestDirectoryPath); // problem, createtree isn't recursive 
+        String treeHash = createTree(deepestDirectoryPath); 
 
         // puts lines back in correct order (uses list now)
         ArrayList<String> updatedLines = new ArrayList<>();
