@@ -79,14 +79,14 @@ public class Git {
     }
 
     // generates a tree based upon the Path of a directory
-    public String createTree(String pathToAdd) {
+    public String createTree(String directoryPath) {
         // checks if pathToAdd is file, if it is then it adds it like a file from before
-        Path pathToUse = Path.of(pathToAdd);
-        if (!pathToUse.toFile().isDirectory()) {
+        Path targetPath = Path.of(directoryPath);
+        if (!targetPath.toFile().isDirectory()) {
             try {
-                String hash = FileHasher.hashFile(pathToAdd);
+                String hash = FileHasher.hashFile(directoryPath);
                 FileWriter fw = new FileWriter("./git/objects/" + hash);
-                fw.write(Files.readString(pathToUse));
+                fw.write(Files.readString(targetPath));
                 fw.close();
                 return hash;
             } catch (IOException e) {
@@ -94,123 +94,122 @@ public class Git {
             }
         }
         // turns the contents in folder into array
-        File folder = new File(pathToAdd);
-        File[] filesInFolder = folder.listFiles();
-        StringBuilder contentsOfTree = new StringBuilder();
-        if (filesInFolder != null) {
-            for (int i = 0; i < filesInFolder.length; i++) {
-                if (!filesInFolder[i].isDirectory()) {
+        File directory = new File(directoryPath);
+        File[] directoryContents = directory.listFiles();
+        StringBuilder treeContents = new StringBuilder();
+        if (directoryContents != null) {
+            for (int i = 0; i < directoryContents.length; i++) {
+                if (!directoryContents[i].isDirectory()) {
                     try {
                         // finds file hash of the file
-                        String fileHash =
-                                FileHasher.hashFile(filesInFolder[i].getPath().toString());
+                        String blobHash =
+                                FileHasher.hashFile(directoryContents[i].getPath().toString());
                         // writes into blob
-                        FileWriter blobWriter = new FileWriter("./git/objects/" + fileHash);
-                        blobWriter.write(Files.readString(filesInFolder[i].toPath()));
+                        FileWriter blobWriter = new FileWriter("./git/objects/" + blobHash);
+                        blobWriter.write(Files.readString(directoryContents[i].toPath()));
                         blobWriter.close();
                         // writes line for file
-                        contentsOfTree.append(
-                                "blob " + fileHash + " " + filesInFolder[i].getName() + "\n");
+                        treeContents.append(
+                                "blob " + blobHash + " " + directoryContents[i].getName() + "\n");
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 } else {
                     // finds file hash of tree
-                    String hashOfSmallerTree = createTree(filesInFolder[i].getPath().toString());
-                    contentsOfTree.append(
-                            "tree " + hashOfSmallerTree + " " + filesInFolder[i].getName() + "\n");
+                    String subtreeHash = createTree(directoryContents[i].getPath().toString());
+                    treeContents.append(
+                            "tree " + subtreeHash + " " + directoryContents[i].getName() + "\n");
                 }
             }
 
         }
         try {
-            String stringContents = contentsOfTree.toString();
-            String hash = FileHasher.hashString(stringContents);
+            String treeContentString = treeContents.toString();
+            String treeHash = FileHasher.hashString(treeContentString);
 
             // Writes the tree file
-            Files.writeString(Path.of("./git/objects/" + hash), stringContents);
+            Files.writeString(Path.of("./git/objects/" + treeHash), treeContentString);
 
-            return hash;
+            return treeHash;
         } catch (IOException e) {
             e.printStackTrace();
             return null;
         }
-
     }
 
-    public String createTreeFromIndex(String pathToWorkingList) throws IOException {
+    public String createTreeFromIndex(String workingListPath) throws IOException {
         // builds and sorts working list
-        Path path = Path.of(pathToWorkingList);
+        Path path = Path.of(workingListPath);
         File file = path.toFile();
 
         BufferedReader br = new BufferedReader(new FileReader(file));
         // paths isolates all the paths parts, so we can sort it
-        ArrayList<String> lines = new ArrayList<>();
+        ArrayList<String> workingList = new ArrayList<>();
         while (br.ready()) {
             String newLine = br.readLine();
             // identifies what is path and what is hash and rearranges with path first so
             // easirr to sort later
             String[] splits = newLine.split(" ");
-            String path1 = splits[2];
+            String filePath = splits[2];
             String hash = splits[1];
             String type = "blob";
-            lines.add(path1 + " " + type + " " + hash);
+            workingList.add(filePath + " " + type + " " + hash);
         }
         br.close();
-        Collections.sort(lines);
+        Collections.sort(workingList);
 
         // sees which is deepest by counting slashes
         int maxSlashes = -1;
-        ArrayList<String> deepestLines = new ArrayList<>();
+        ArrayList<String> directoryEntries = new ArrayList<>();
 
-        for (String line : lines) {
+        for (String workingListEntry : workingList) {
             int slashCount = 0;
-            for (int i = 0; i < line.length(); i++) {
-                if (line.charAt(i) == '/') {
+            for (int i = 0; i < workingListEntry.length(); i++) {
+                if (workingListEntry.charAt(i) == '/') {
                     slashCount++;
                 }
             }
             if (slashCount > maxSlashes) {
                 maxSlashes = slashCount;
-                deepestLines = new ArrayList<>();
-                deepestLines.add(line);
+                directoryEntries = new ArrayList<>();
+                directoryEntries.add(workingListEntry);
             } else if (slashCount == maxSlashes) {
-                deepestLines.add(line);
+                directoryEntries.add(workingListEntry);
 
             }
         }
 
         // see if the deepestLines have same directory
-        String firstDirectory =
-                deepestLines.get(0).substring(0, deepestLines.get(0).lastIndexOf("/"));
+        String deepestDirectoryPath =
+                directoryEntries.get(0).substring(0, directoryEntries.get(0).lastIndexOf("/"));
         ArrayList<String> sameDir = new ArrayList<>();
-        sameDir.add(deepestLines.get(0));
+        sameDir.add(directoryEntries.get(0));
 
-        for (String line1 : deepestLines) {
-            String dir = line1.substring(0, line1.lastIndexOf("/"));
-            if (firstDirectory.equals(dir)) {
-                sameDir.add(line1);
+        for (String directoryEntry : directoryEntries) {
+            String parentDirectoryPath = directoryEntry.substring(0, directoryEntry.lastIndexOf("/"));
+            if (deepestDirectoryPath.equals(parentDirectoryPath)) {
+                sameDir.add(directoryEntry);
             }
         }
 
         // finds hash of the directory
-        String hashOfTree = createTree(firstDirectory);
+        String treeHash = createTree(deepestDirectoryPath);
 
         // puts lines back in correct order (uses list now)
         ArrayList<String> updatedLines = new ArrayList<>();
 
-        for (String line2 : lines) {
-            if (!line2.contains(firstDirectory)) {
-                String[] splits = line2.split(" ");
-                String path2 = splits[0];
-                String hash = splits[2];
-                String type = splits[1];
+        for (String remainingEntry : workingList) {
+            if (!remainingEntry.contains(deepestDirectoryPath)) {
+                String[] lineParts = remainingEntry.split(" ");
+                String remainingFilePath = lineParts[0];
+                String fileHash = lineParts[2];
+                String type = lineParts[1];
 
-                updatedLines.add(type + " " + hash + " " + path2);
+                updatedLines.add(type + " " + fileHash + " " + remainingFilePath);
             }
         }
 
-        return hashOfTree;
+        return treeHash;
     }
 
 }
