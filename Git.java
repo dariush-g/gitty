@@ -1,15 +1,6 @@
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.Reader;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
-import java.util.Collections;
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
 
 public class Git {
     void main(String[] args) throws IOException {
@@ -24,7 +15,7 @@ public class Git {
                     System.out.println("add needs parameter");
                     return;
                 }
-                addFile(args[1]);
+                add(args[1]);
                 break;
             case "commit":
                 break;
@@ -32,7 +23,7 @@ public class Git {
         System.out.println();
     }
 
-    void addFile(String path_to_add) throws IOException {
+    void add(String path_to_add) throws IOException {
         var hash = FileHasher.hashFile(path_to_add);
         var path = Path.of("./git/objects/" + hash);
 
@@ -88,7 +79,7 @@ public class Git {
     }
 
     // generates a tree based upon the Path of a directory
-    public String generateTree(String pathToAdd) {
+    public String createTree(String pathToAdd) {
         // checks if pathToAdd is file, if it is then it adds it like a file from before
         Path pathToUse = Path.of(pathToAdd);
         if (!pathToUse.toFile().isDirectory()) {
@@ -111,20 +102,23 @@ public class Git {
                 if (!filesInFolder[i].isDirectory()) {
                     try {
                         // finds file hash of the file
-                        String fileHash = FileHasher.hashFile(filesInFolder[i].getPath().toString());
+                        String fileHash =
+                                FileHasher.hashFile(filesInFolder[i].getPath().toString());
                         // writes into blob
                         FileWriter blobWriter = new FileWriter("./git/objects/" + fileHash);
                         blobWriter.write(Files.readString(filesInFolder[i].toPath()));
                         blobWriter.close();
                         // writes line for file
-                        contentsOfTree.append("blob " + fileHash + " " + filesInFolder[i].getName() + "\n");
+                        contentsOfTree.append(
+                                "blob " + fileHash + " " + filesInFolder[i].getName() + "\n");
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 } else {
                     // finds file hash of tree
-                    String hashOfSmallerTree = generateTree(filesInFolder[i].getPath().toString());
-                    contentsOfTree.append("tree " + hashOfSmallerTree + " " + filesInFolder[i].getName() + "\n");
+                    String hashOfSmallerTree = createTree(filesInFolder[i].getPath().toString());
+                    contentsOfTree.append(
+                            "tree " + hashOfSmallerTree + " " + filesInFolder[i].getName() + "\n");
                 }
             }
 
@@ -159,8 +153,8 @@ public class Git {
             String[] splits = newLine.split(" ");
             String path1 = splits[2];
             String hash = splits[1];
-            String type = splits[0];
-            lines.add(path1 + type + hash);
+            String type = "blob";
+            lines.add(path1 + " " + type + " " + hash);
         }
         br.close();
         Collections.sort(lines);
@@ -187,7 +181,8 @@ public class Git {
         }
 
         // see if the deepestLines have same directory
-        String firstDirectory = deepestLines.get(0).substring(0, deepestLines.get(0).lastIndexOf("/"));
+        String firstDirectory =
+                deepestLines.get(0).substring(0, deepestLines.get(0).lastIndexOf("/"));
         ArrayList<String> sameDir = new ArrayList<>();
         sameDir.add(deepestLines.get(0));
 
@@ -199,21 +194,23 @@ public class Git {
         }
 
         // finds hash of the directory
-        String hashOfTree = generateTree(firstDirectory);
+        String hashOfTree = createTree(firstDirectory);
 
-        // puts lines back in correct order
+        // puts lines back in correct order (uses list now)
+        ArrayList<String> updatedLines = new ArrayList<>();
+
         for (String line2 : lines) {
             if (!line2.contains(firstDirectory)) {
                 String[] splits = line2.split(" ");
                 String path2 = splits[0];
                 String hash = splits[2];
                 String type = splits[1];
-                lines.add(type + hash + path2);
 
+                updatedLines.add(type + " " + hash + " " + path2);
             }
         }
 
-        return "";
+        return hashOfTree;
     }
 
 }
