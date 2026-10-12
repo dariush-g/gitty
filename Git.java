@@ -137,6 +137,78 @@ public class Git {
         }
     }
 
+    // recursive version of createTree
+    public static String createTree(ArrayList<String> workingList, String directoryPath)
+            throws IOException {
+        StringBuilder treeContents = new StringBuilder();
+
+        for (String line : workingList) {
+            // decomposing each entry into its type, hash, and file path
+            String[] parts = line.split(" ", 3);
+
+            String type = parts[0];
+            String hash = parts[1];
+            String filePath = parts[2];
+
+            File file = new File(filePath);
+            String parentDirectory = file.getParent();
+
+            // checking if the file belongs directly inside the directory we're creating the tree
+            // for
+            if (directoryPath.equals(parentDirectory)) {
+                String fileName = file.getName();
+                treeContents.append(type + " " + hash + " " + fileName + "\n");
+            }
+        }
+
+        String treeHash = FileHasher.hashFile(treeContents.toString());
+        FileWriter fw = new FileWriter("git/objects/" + treeHash);
+        fw.write(treeContents.toString());
+        fw.close();
+        return treeHash;
+    }
+
+    public static ArrayList<String> workingList() throws IOException {
+        ArrayList<String> workingList = new ArrayList<>();
+        ArrayList<String> workingListFiles = new ArrayList<>();
+        HashMap<String, String> fileMap = new HashMap<>();
+
+        // reading the existing index file (going line by line), prefix "blob"
+        try (BufferedReader br = new BufferedReader(new FileReader("git/INDEX"))) {
+            String line = br.readLine();
+
+            while (line != null) {
+                // add same filePath, but with diff hash
+                if (!line.isBlank()) {
+                    workingList.add("blob " + line);
+                }
+
+                line = br.readLine();
+            }
+        }
+
+        // get file paths and store original entries
+        for (String line : workingList) {
+            String[] parts = line.split(" ", 3);
+            String filePath = parts[2];
+
+            workingListFiles.add(filePath);
+            fileMap.put(filePath, line);
+        }
+
+        // sort alphabetically
+        Collections.sort(workingListFiles);
+
+        // rebuild working list in sorted order
+        ArrayList<String> sortedWorkingList = new ArrayList<>();
+
+        for (String filePath : workingListFiles) {
+            sortedWorkingList.add(fileMap.get(filePath));
+        }
+
+        return sortedWorkingList;
+    }
+    
     public String createTreeFromIndex(String workingListPath) throws IOException {
         // builds and sorts working list
         Path path = Path.of(workingListPath);
@@ -193,7 +265,7 @@ public class Git {
         }
 
         // finds hash of the directory
-        String treeHash = createTree(deepestDirectoryPath);
+        String treeHash = createTree(deepestDirectoryPath); // problem, createtree isn't recursive 
 
         // puts lines back in correct order (uses list now)
         ArrayList<String> updatedLines = new ArrayList<>();
