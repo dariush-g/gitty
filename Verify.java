@@ -76,6 +76,13 @@ public class Verify {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+        // test 5: commit()
+        try {
+            git.commit("jessie", "test message");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private static void cleanDirectory(Path path) {

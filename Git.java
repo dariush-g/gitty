@@ -1,5 +1,6 @@
 import java.io.*;
 import java.nio.file.*;
+import java.time.LocalDate;
 import java.util.*;
 
 public class Git {
@@ -102,8 +103,7 @@ public class Git {
                 if (!directoryContents[i].isDirectory()) {
                     try {
                         // finds file hash of the file
-                        String blobHash =
-                                FileHasher.hashFile(directoryContents[i].getPath().toString());
+                        String blobHash = FileHasher.hashFile(directoryContents[i].getPath().toString());
                         // writes into blob
                         FileWriter blobWriter = new FileWriter("./git/objects/" + blobHash);
                         blobWriter.write(Files.readString(directoryContents[i].toPath()));
@@ -138,35 +138,37 @@ public class Git {
     }
 
     // recursive version of createTree
-    public static String createTree(ArrayList<String> workingList, String directoryPath)
-            throws IOException {
-        StringBuilder treeContents = new StringBuilder();
+    // public static String createTree(ArrayList<String> workingList, String
+    // directoryPath)
+    // throws IOException {
+    // StringBuilder treeContents = new StringBuilder();
 
-        for (String line : workingList) {
-            // decomposing each entry into its type, hash, and file path
-            String[] parts = line.split(" ", 3);
+    // for (String line : workingList) {
+    // // decomposing each entry into its type, hash, and file path
+    // String[] parts = line.split(" ", 3);
 
-            String type = parts[0];
-            String hash = parts[1];
-            String filePath = parts[2];
+    // String type = parts[0];
+    // String hash = parts[1];
+    // String filePath = parts[2];
 
-            File file = new File(filePath);
-            String parentDirectory = file.getParent();
+    // File file = new File(filePath);
+    // String parentDirectory = file.getParent();
 
-            // checking if the file belongs directly inside the directory we're creating the tree
-            // for
-            if (directoryPath.equals(parentDirectory)) {
-                String fileName = file.getName();
-                treeContents.append(type + " " + hash + " " + fileName + "\n");
-            }
-        }
+    // // checking if the file belongs directly inside the directory we're creating
+    // the tree
+    // // for
+    // if (directoryPath.equals(parentDirectory)) {
+    // String fileName = file.getName();
+    // treeContents.append(type + " " + hash + " " + fileName + "\n");
+    // }
+    // }
 
-        String treeHash = FileHasher.hashFile(treeContents.toString());
-        FileWriter fw = new FileWriter("git/objects/" + treeHash);
-        fw.write(treeContents.toString());
-        fw.close();
-        return treeHash;
-    }
+    // String treeHash = FileHasher.hashFile(treeContents.toString());
+    // FileWriter fw = new FileWriter("git/objects/" + treeHash);
+    // fw.write(treeContents.toString());
+    // fw.close();
+    // return treeHash;
+    // }
 
     public static ArrayList<String> workingList() throws IOException {
         ArrayList<String> workingList = new ArrayList<>();
@@ -208,7 +210,7 @@ public class Git {
 
         return sortedWorkingList;
     }
-    
+
     public String createTreeFromIndex(String workingListPath) throws IOException {
         // builds and sorts working list
         Path path = Path.of(workingListPath);
@@ -252,8 +254,7 @@ public class Git {
         }
 
         // see if the deepestLines have same directory
-        String deepestDirectoryPath =
-                directoryEntries.get(0).substring(0, directoryEntries.get(0).lastIndexOf("/"));
+        String deepestDirectoryPath = directoryEntries.get(0).substring(0, directoryEntries.get(0).lastIndexOf("/"));
         ArrayList<String> sameDir = new ArrayList<>();
         sameDir.add(directoryEntries.get(0));
 
@@ -265,7 +266,7 @@ public class Git {
         }
 
         // finds hash of the directory
-        String treeHash = createTree(deepestDirectoryPath); 
+        String treeHash = createTree(deepestDirectoryPath);
 
         // puts lines back in correct order (uses list now)
         ArrayList<String> updatedLines = new ArrayList<>();
@@ -282,6 +283,41 @@ public class Git {
         }
 
         return treeHash;
+    }
+
+    public void commit(String author, String message) {
+        try {
+            String sha1 = FileHasher.hashFile(createTreeFromIndex("git/INDEX"));
+            String date = LocalDate.now().toString();
+            StringBuilder fileContents = new StringBuilder();
+
+            BufferedReader br = new BufferedReader(new FileReader("git/HEAD"));
+            String head = br.readAllAsString();
+            String parent;
+            if (!head.equals("")) {
+                parent = head;
+            } else {
+                parent = null;
+            }
+            br.close();
+
+            if (parent == null) {
+                fileContents.append("tree: " + sha1 + "\nauthor: " + author + "\ndate: " + date
+                        + "message: " + message);
+            } else {
+                fileContents.append("tree: " + sha1 + "\nparent: " + parent + "\nauthor: " + author + "\ndate: " + date
+                        + "message: " + message);
+            }
+
+            File commitFile = new File("git/objects/" + sha1);
+            FileWriter fw = new FileWriter(commitFile);
+            fw.append(fileContents.toString());
+            fw.close();
+            
+        } catch (Exception e) {
+            System.out.println("An error occurred while creating the file.");
+            e.printStackTrace();
+        }
     }
 
 }
