@@ -27,9 +27,7 @@ public class FileHasher {
             String hexString = bytesToHex(encoded);
             return hexString;
         } catch (NoSuchAlgorithmException e) {
-            System.err.println("Error hashing file" + filePath);
-            e.printStackTrace();
-            return filePath;
+            throw new IllegalStateException("Error hashing file: " + filePath, e);
         }
     }
 

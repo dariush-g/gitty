@@ -232,55 +232,109 @@ public class Git {
         br.close();
         Collections.sort(workingList);
 
-        // sees which is deepest by counting slashes
-        int maxSlashes = -1;
-        ArrayList<String> directoryEntries = new ArrayList<>();
+        while (workingList.size() > 0) {
+            // sees which is deepest by counting slashes
+            int maxSlashes = -1;
+            ArrayList<String> directoryEntries = new ArrayList<>();
 
-        for (String workingListEntry : workingList) {
-            int slashCount = 0;
-            for (int i = 0; i < workingListEntry.length(); i++) {
-                if (workingListEntry.charAt(i) == '/') {
-                    slashCount++;
+            for (String workingListEntry : workingList) {
+
+                String filePath = workingListEntry.split(" ", 3)[0];
+                int slashCount = filePath.split("/", -1).length - 1;
+
+                if (slashCount > maxSlashes) {
+                    maxSlashes = slashCount;
+                    directoryEntries = new ArrayList<>();
+                    directoryEntries.add(workingListEntry);
+                } else if (slashCount == maxSlashes) {
+                    directoryEntries.add(workingListEntry);
                 }
             }
-            if (slashCount > maxSlashes) {
-                maxSlashes = slashCount;
-                directoryEntries = new ArrayList<>();
-                directoryEntries.add(workingListEntry);
-            } else if (slashCount == maxSlashes) {
-                directoryEntries.add(workingListEntry);
 
+            // if all remaining files are in the root directory
+            if (maxSlashes == 0) {
+                StringBuilder rootContents = new StringBuilder();
+
+                for (String entry : workingList) {
+                    String[] parts = entry.split(" ", 3);
+
+                    String filePath = parts[0];
+                    String type = parts[1];
+                    String hash = parts[2];
+
+                    rootContents.append(type + " " + hash + " " + filePath + "\n");
+                }
+
+                String rootHash = FileHasher.hashString(rootContents.toString());
+
+                Files.writeString(
+                        Path.of("./git/objects/" + rootHash),
+                        rootContents.toString());
+
+                return rootHash;
             }
+
+            // see if the deepestLines have same directory
+            String deepestDirectoryPath = directoryEntries.get(0).substring(0,
+                    directoryEntries.get(0).lastIndexOf("/"));
+            ArrayList<String> sameDir = new ArrayList<>();
+
+            for (String directoryEntry : workingList) {
+                String parentDirectoryPath = directoryEntry.substring(0, directoryEntry.lastIndexOf("/"));
+                if (deepestDirectoryPath.equals(parentDirectoryPath)) {
+                    sameDir.add(directoryEntry);
+                }
+            }
+
+            // building tree
+            StringBuilder treeContents = new StringBuilder();
+
+            for (String entry : sameDir) {
+                String[] parts = entry.split(" ", 3);
+
+                String filePath = parts[0];
+                String type = parts[1];
+                String hash = parts[2];
+
+                String fileName = Path.of(filePath).getFileName().toString();
+
+                treeContents.append(type + " " + hash + " " + fileName + "\n");
+            }
+
+            String treeHash = FileHasher.hashString(treeContents.toString());
+
+            Files.writeString(
+                    Path.of("./git/objects/" + treeHash),
+                    treeContents.toString());
+
+            // puts lines back in correct order (uses list now)
+            ArrayList<String> updatedLines = new ArrayList<>();
+
+            for (String remainingEntry : workingList) {
+
+                String[] parts = remainingEntry.split(" ", 3);
+                String filePath = parts[0];
+                String parentPath = "";
+
+                if (Path.of(filePath).getParent() != null) {
+                    parentPath = Path.of(filePath).getParent().toString();
+                }
+
+                if (!parentPath.equals(deepestDirectoryPath)) {
+                    updatedLines.add(remainingEntry);
+                }
+            }
+
+            updatedLines.add(deepestDirectoryPath + " tree " + treeHash);
+            Collections.sort(updatedLines);
+            workingList = updatedLines;
         }
 
-        // see if the deepestLines have same directory
-        String deepestDirectoryPath = directoryEntries.get(0).substring(0, directoryEntries.get(0).lastIndexOf("/"));
-        ArrayList<String> sameDir = new ArrayList<>();
-        sameDir.add(directoryEntries.get(0));
+        // if index is empty
+        String treeContents = "";
+        String treeHash = FileHasher.hashString(treeContents);
 
-        for (String directoryEntry : directoryEntries) {
-            String parentDirectoryPath = directoryEntry.substring(0, directoryEntry.lastIndexOf("/"));
-            if (deepestDirectoryPath.equals(parentDirectoryPath)) {
-                sameDir.add(directoryEntry);
-            }
-        }
-
-        // finds hash of the directory
-        String treeHash = createTree(deepestDirectoryPath);
-
-        // puts lines back in correct order (uses list now)
-        ArrayList<String> updatedLines = new ArrayList<>();
-
-        for (String remainingEntry : workingList) {
-            if (!remainingEntry.contains(deepestDirectoryPath)) {
-                String[] lineParts = remainingEntry.split(" ");
-                String remainingFilePath = lineParts[0];
-                String fileHash = lineParts[2];
-                String type = lineParts[1];
-
-                updatedLines.add(type + " " + fileHash + " " + remainingFilePath);
-            }
-        }
+        Files.writeString(Path.of("./git/objects/" + treeHash), treeContents);
 
         return treeHash;
     }
@@ -313,7 +367,7 @@ public class Git {
             FileWriter fw = new FileWriter(commitFile);
             fw.append(fileContents.toString());
             fw.close();
-            
+
         } catch (Exception e) {
             System.out.println("An error occurred while creating the file.");
             e.printStackTrace();
