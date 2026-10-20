@@ -280,7 +280,14 @@ public class Git {
             ArrayList<String> sameDir = new ArrayList<>();
 
             for (String directoryEntry : workingList) {
-                String parentDirectoryPath = directoryEntry.substring(0, directoryEntry.lastIndexOf("/"));
+
+                String filePath = directoryEntry.split(" ", 3)[0];
+                String parentDirectoryPath = "";
+
+                if (filePath.contains("/")) {
+                    parentDirectoryPath = filePath.substring(0, filePath.lastIndexOf("/"));
+                }
+
                 if (deepestDirectoryPath.equals(parentDirectoryPath)) {
                     sameDir.add(directoryEntry);
                 }
@@ -339,15 +346,16 @@ public class Git {
         return treeHash;
     }
 
-    public void commit(String author, String message) {
+    public String commit(String author, String message) {
         try {
-            String sha1 = FileHasher.hashFile(createTreeFromIndex("git/INDEX"));
+            String sha1 = createTreeFromIndex("git/INDEX");
             String date = LocalDate.now().toString();
             StringBuilder fileContents = new StringBuilder();
 
             BufferedReader br = new BufferedReader(new FileReader("git/HEAD"));
             String head = br.readAllAsString();
             String parent;
+
             if (!head.equals("")) {
                 parent = head;
             } else {
@@ -357,20 +365,30 @@ public class Git {
 
             if (parent == null) {
                 fileContents.append("tree: " + sha1 + "\nauthor: " + author + "\ndate: " + date
-                        + "message: " + message);
+                        + "\nmessage: " + message);
             } else {
                 fileContents.append("tree: " + sha1 + "\nparent: " + parent + "\nauthor: " + author + "\ndate: " + date
-                        + "message: " + message);
+                        + "\nmessage: " + message);
             }
 
-            File commitFile = new File("git/objects/" + sha1);
+            // hash commit contents
+            String commitHash = FileHasher.hashString(fileContents.toString());
+
+            // create commit file
+            File commitFile = new File("git/objects/" + commitHash);
             FileWriter fw = new FileWriter(commitFile);
-            fw.append(fileContents.toString());
+            fw.write(fileContents.toString());
             fw.close();
+
+            // update head after saving the commit
+            Files.writeString(Path.of("git/HEAD"), commitHash);
+
+            return commitHash;
 
         } catch (Exception e) {
             System.out.println("An error occurred while creating the file.");
             e.printStackTrace();
+            return null;
         }
     }
 

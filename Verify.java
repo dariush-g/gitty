@@ -80,6 +80,7 @@ public class Verify {
         // test 5: commit()
         try {
             git.commit("jessie", "test message");
+            git.commit("jessie2", "test message 2, should have parent");
         } catch (Exception e) {
             e.printStackTrace();
         }
