@@ -28,7 +28,7 @@ public class Git {
         var hash = FileHasher.hashFile(path_to_add);
         var path = Path.of("./git/objects/" + hash);
 
-        var hashes_files = Files.readAllLines(Path.of("./git/INDEX")).stream().map(line -> {
+        var hashes_files = Files.readAllLines(Path.of("./git/index")).stream().map(line -> {
             var split = line.split(" ");
             if (split.length != 2) {
                 System.err.println("error parsing index");
@@ -49,21 +49,21 @@ public class Git {
 
         if (!exists) {
             Files.write(path, Files.readAllBytes(Paths.get(path_to_add)));
-            Files.writeString(Path.of("./git/INDEX"), hash + " " + path_to_add + "\n",
+            Files.writeString(Path.of("./git/index"), hash + " " + path_to_add + "\n",
                     StandardOpenOption.APPEND);
         } else {
             Files.write(path, Files.readAllBytes(Paths.get(path_to_add)));
             var builder = new StringBuilder();
             for (var hash_file : hashes_files)
                 builder.append(hash_file[0] + " " + hash_file[1] + "\n");
-            Files.writeString(Path.of("./git/INDEX"), builder.toString());
+            Files.writeString(Path.of("./git/index"), builder.toString());
         }
     }
 
     void init() throws IOException {
         Path path = Paths.get("git/");
         Path objects = Paths.get("./git/objects/");
-        Path index = Paths.get("./git/INDEX");
+        Path index = Paths.get("./git/index");
         Path head = Paths.get("./git/HEAD");
         String currentPath = System.getProperty("user.dir");
 
@@ -74,8 +74,13 @@ public class Git {
             Files.createDirectories(path);
             System.out.println("Git Repository Created");
             Files.createDirectories(objects);
-            Files.createFile(index);
-            Files.createFile(head);
+            if (!Files.exists(index)) {
+                Files.createFile(index);
+            }
+
+            if (!Files.exists(head)) {
+                Files.createFile(head);
+            }
         }
     }
 
@@ -176,7 +181,7 @@ public class Git {
         HashMap<String, String> fileMap = new HashMap<>();
 
         // reading the existing index file (going line by line), prefix "blob"
-        try (BufferedReader br = new BufferedReader(new FileReader("git/INDEX"))) {
+        try (BufferedReader br = new BufferedReader(new FileReader("git/index"))) {
             String line = br.readLine();
 
             while (line != null) {
@@ -348,7 +353,7 @@ public class Git {
 
     public String commit(String author, String message) {
         try {
-            String sha1 = createTreeFromIndex("git/INDEX");
+            String sha1 = createTreeFromIndex("git/index");
             String date = LocalDate.now().toString();
             StringBuilder fileContents = new StringBuilder();
 
