@@ -3,6 +3,8 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 
 public class Verify {
@@ -81,6 +83,29 @@ public class Verify {
         try {
             git.commit("jessie", "test message");
             git.commit("jessie2", "test message 2, should have parent");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // test 6: regenerateIndex()
+        try {
+            String oldIndex = Files.readString(Path.of("git/index"));
+            String head = Files.readString(Path.of("git/HEAD")).trim();
+
+            Files.writeString(Path.of("git/index"), "");
+
+            git.regenerateIndex(head);
+
+            System.out.println("\n\nOriginal index:" + oldIndex);
+
+            System.out.println("Regenerated index: " + Files.readString(Path.of("git/index")));
+
+            String newHash = git.commit("person", "commit2");
+
+            System.out.println("First commit:" + Files.readString(Path.of("git/objects/" + head)));
+
+            System.out.println("\nSecond commit:" + Files.readString(Path.of("git/objects/" + newHash)));
+
         } catch (Exception e) {
             e.printStackTrace();
         }

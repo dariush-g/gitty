@@ -65,7 +65,6 @@ public class Git {
         Path objects = Paths.get("./git/objects/");
         Path index = Paths.get("./git/index");
         Path head = Paths.get("./git/HEAD");
-        String currentPath = System.getProperty("user.dir");
 
         if (Files.isDirectory(path) && Files.isDirectory(objects) && Files.exists(index)
                 && Files.exists(head))
@@ -102,6 +101,7 @@ public class Git {
         // turns the contents in folder into array
         File directory = new File(directoryPath);
         File[] directoryContents = directory.listFiles();
+        
         StringBuilder treeContents = new StringBuilder();
         if (directoryContents != null) {
             for (int i = 0; i < directoryContents.length; i++) {
@@ -397,4 +397,60 @@ public class Git {
         }
     }
 
+    public void regenerateIndex(String commitHash) throws IOException {
+        Path commitPath = Path.of("./git/objects/" + commitHash);
+
+        // getting all lines of the commit file
+        ArrayList<String> commitLines = new ArrayList<>();
+
+        for (String line : Files.readAllLines(commitPath)) {
+            commitLines.add(line);
+        }
+
+        // get hash of root tree
+        String rootTreeHash = "";
+
+        for (String line : commitLines) {
+            if (line.startsWith("tree: ")) {
+                rootTreeHash = line.substring(6);
+                break;
+            }
+        }
+
+        if (rootTreeHash.equals("")) {
+            throw new IOException("no root tree found :(");
+        }
+
+        // rebuild index from root 
+        ArrayList<String> indexLines = new ArrayList<>();
+
+        readTreeRecursive (rootTreeHash, "", indexLines);
+        
+        // replace index 
+        Files.write(Path.of("git/index"), indexLines);
+    }
+
+    public static void readTreeRecursive (String treeHash, String directoryPath, ArrayList<String> indexLines) throws IOException {
+        Path treePath = Path.of("./git/objects/" + treeHash);
+        ArrayList<String> treeLines = new ArrayList<>();
+
+        for (String line : Files.readAllLines(treePath)) {
+            treeLines.add(line);
+        }
+
+        for (String line : treeLines) {
+            String[] parts = line.split(" ", 3);
+            String type = parts[0];
+            String hash = parts[1];
+            String fileName = parts[2];
+
+            String fullPath = directoryPath + fileName;
+
+            if (type.equals("blob")) {
+                indexLines.add(hash + " " + fullPath);
+            } else if (type.equals("tree")) {
+                Git.readTreeRecursive(hash, fullPath + "/", indexLines);
+            }
+        }
+    }
 }
