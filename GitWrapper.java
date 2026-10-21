@@ -2,6 +2,8 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
 
 public class GitWrapper {
 
@@ -87,6 +89,68 @@ public class GitWrapper {
      * @param commitHash The SHA1 hash of the commit to check out.
      */
     public void checkout(String commitHash) {
-        // to-do: implement functionality here
+        Git git = new Git();
+
+        try {
+            ArrayList<String> oldIndexLines = new ArrayList<>(Files.readAllLines(Path.of("git/index")));
+
+            // generate new index (well, whatever's in the commit)
+            git.regenerateIndex(commitHash);
+            ArrayList<String> newIndexLines = new ArrayList<>(Files.readAllLines(Path.of("git/index")));
+
+            // delete files not tracked
+            for (String line : oldIndexLines) {
+                String[] parts = line.split(" ", 2);
+                String filePath = parts[1];
+
+                boolean found = false;
+
+                for (String newLine : newIndexLines) {
+                    String[] newParts = newLine.split(" ", 2);
+                    if (filePath.equals(newParts[1])) {
+                        found = true;
+                    }
+                }
+
+                if (!found) {
+                    Files.deleteIfExists(Path.of(filePath));
+
+                    // remove empty folders
+                    Path folder = Path.of(filePath).getParent();
+
+                    while (folder != null) {
+                        try {
+                            Files.delete(folder);
+                        } catch (Exception e) {
+                            break;
+                        }
+
+                        folder = folder.getParent();
+                    }
+                }
+            }
+
+            // restore files from commit we're checking out
+            for (String line : newIndexLines) {
+                String[] parts = line.split(" ", 2);
+                String hash = parts[0];
+                String filePath = parts[1];
+
+                Path origin = Path.of("git/objects/" + hash);
+                Path target = Path.of(filePath);
+
+                if (target.getParent() != null) {
+                    Files.createDirectories(target.getParent());
+                }
+
+                Files.copy(origin, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            // update head
+            Files.writeString(Path.of("git/HEAD"), commitHash);
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
