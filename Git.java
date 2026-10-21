@@ -5,23 +5,27 @@ import java.util.*;
 
 public class Git {
     void main(String[] args) throws IOException {
-        if (args.length == 0)
-            return;
-        switch (args[0]) {
-            case "init":
-                init();
-                break;
-            case "add":
-                if (args.length < 2) {
-                    System.out.println("add needs parameter");
-                    return;
-                }
-                add(args[1]);
-                break;
-            case "commit":
-                break;
-        }
-        System.out.println();
+        // if (args.length == 0)
+        // return;
+        // switch (args[0]) {
+        // case "init":
+        // init();
+        // break;
+        // case "add":
+        // if (args.length < 2) {
+        // System.out.println("add needs parameter");
+        // return;
+        // }
+        // add(args[1]);
+        // break;
+        // case "commit":
+        // break;
+        // }
+        // System.out.println();
+
+        var git = new GitWrapper();
+
+        git.commit("dariush", "hello");
     }
 
     void add(String path_to_add) throws IOException {
@@ -65,16 +69,25 @@ public class Git {
         Path objects = Paths.get("./git/objects/");
         Path index = Paths.get("./git/index");
         Path head = Paths.get("./git/HEAD");
+        Path ref = Paths.get("./git/refs/heads/");
+        Path mainBranch = Paths.get("./git/ref/main");
 
         if (Files.isDirectory(path) && Files.isDirectory(objects) && Files.exists(index)
-                && Files.exists(head))
+                && Files.exists(head) && Files.isDirectory(ref))
             System.out.println("Git Repository Already Exists");
         else {
-            Files.createDirectories(path);
             System.out.println("Git Repository Created");
+
+            Files.createDirectories(path);
             Files.createDirectories(objects);
+            Files.createDirectories(ref);
+
             if (!Files.exists(index)) {
                 Files.createFile(index);
+            }
+
+            if (!Files.exists(mainBranch)) {
+                Files.createFile(mainBranch);
             }
 
             if (!Files.exists(head)) {
@@ -101,7 +114,7 @@ public class Git {
         // turns the contents in folder into array
         File directory = new File(directoryPath);
         File[] directoryContents = directory.listFiles();
-        
+
         StringBuilder treeContents = new StringBuilder();
         if (directoryContents != null) {
             for (int i = 0; i < directoryContents.length; i++) {
@@ -216,7 +229,80 @@ public class Git {
         return sortedWorkingList;
     }
 
-    public String createTreeFromIndex(String workingListPath) throws IOException {
+    public static void checkout(String arg) throws IOException {
+        if (Files.exists(Path.of("git/objects/" + arg))) {
+            checkoutCommit(arg, Path.of("git/HEAD"));
+        } else {
+            var pathToBranchHead = Path.of("git/refs/head/" + arg);
+            if (!Files.exists(pathToBranchHead))
+                System.out.println("Nonexistent branch/commit " + arg);
+
+            var commitHash = Files.readAllLines(pathToBranchHead).get(0);
+            checkoutCommit(commitHash, pathToBranchHead);
+        }
+    }
+
+    public static void checkoutCommit(String commitHash, Path pathOfHeadToUpdate) throws IOException {
+        ArrayList<String> oldIndexLines = new ArrayList<>(Files.readAllLines(Path.of("git/index")));
+
+        // generate new index (well, whatever's in the commit)
+        regenerateIndex(commitHash);
+        ArrayList<String> newIndexLines = new ArrayList<>(Files.readAllLines(Path.of("git/index")));
+
+        // delete files not tracked
+        for (String line : oldIndexLines) {
+            String[] parts = line.split(" ", 2);
+            String filePath = parts[1];
+
+            boolean found = false;
+
+            for (String newLine : newIndexLines) {
+                String[] newParts = newLine.split(" ", 2);
+                if (filePath.equals(newParts[1])) {
+                    found = true;
+                }
+            }
+
+            if (!found) {
+                Files.deleteIfExists(Path.of(filePath));
+
+                // remove empty folders
+                Path folder = Path.of(filePath).getParent();
+
+                while (folder != null) {
+                    try {
+                        Files.delete(folder);
+                    } catch (Exception e) {
+                        break;
+                    }
+
+                    folder = folder.getParent();
+                }
+            }
+        }
+
+        // restore files from commit we're checking out
+        for (String line : newIndexLines) {
+            String[] parts = line.split(" ", 2);
+            String hash = parts[0];
+            String filePath = parts[1];
+
+            Path origin = Path.of("git/objects/" + hash);
+            Path target = Path.of(filePath);
+
+            if (target.getParent() != null) {
+                Files.createDirectories(target.getParent());
+            }
+
+            Files.copy(origin, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+
+        // update head
+        Files.writeString(pathOfHeadToUpdate, commitHash);
+
+    }
+
+    public static String createTreeFromIndex(String workingListPath) throws IOException {
         // builds and sorts working list
         Path path = Path.of(workingListPath);
         File file = path.toFile();
@@ -351,14 +437,17 @@ public class Git {
         return treeHash;
     }
 
-    public String commit(String author, String message) {
+    public static String commit(String author, String message) {
         try {
             String sha1 = createTreeFromIndex("git/index");
             String date = LocalDate.now().toString();
             StringBuilder fileContents = new StringBuilder();
 
             BufferedReader br = new BufferedReader(new FileReader("git/HEAD"));
-            String head = br.readAllAsString();
+            String branch = br.readAllAsString();
+
+            String head = Files.readAllLines(Path.of("git/" + branch)).get(0);
+
             String parent;
 
             if (!head.equals("")) {
@@ -397,7 +486,7 @@ public class Git {
         }
     }
 
-    public void regenerateIndex(String commitHash) throws IOException {
+    public static void regenerateIndex(String commitHash) throws IOException {
         Path commitPath = Path.of("./git/objects/" + commitHash);
 
         // getting all lines of the commit file
@@ -421,16 +510,17 @@ public class Git {
             throw new IOException("no root tree found :(");
         }
 
-        // rebuild index from root 
+        // rebuild index from root
         ArrayList<String> indexLines = new ArrayList<>();
 
-        readTreeRecursive (rootTreeHash, "", indexLines);
-        
-        // replace index 
+        readTreeRecursive(rootTreeHash, "", indexLines);
+
+        // replace index
         Files.write(Path.of("git/index"), indexLines);
     }
 
-    public static void readTreeRecursive (String treeHash, String directoryPath, ArrayList<String> indexLines) throws IOException {
+    public static void readTreeRecursive(String treeHash, String directoryPath, ArrayList<String> indexLines)
+            throws IOException {
         Path treePath = Path.of("./git/objects/" + treeHash);
         ArrayList<String> treeLines = new ArrayList<>();
 

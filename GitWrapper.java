@@ -32,25 +32,20 @@ public class GitWrapper {
      * 
      * @param filePath The path to the file to be staged.
      */
-    public void add(String filePath) {
+    public void add(String filePath) throws IOException {
         Git git = new Git();
 
-        try {
-            Path path = Path.of(filePath);
+        Path path = Path.of(filePath);
 
-            if (!Files.exists(path)) {
-                throw new IOException("File does not exist: " + filePath);
-            }
-
-            if (Files.isDirectory(path)) {
-                throw new IOException("Can't add a directory: " + filePath);
-            }
-
-            git.add(filePath);
-
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
+        if (!Files.exists(path)) {
+            throw new IOException("File does not exist: " + filePath);
         }
+
+        if (Files.isDirectory(path)) {
+            throw new IOException("Can't add a directory: " + filePath);
+        }
+
+        git.add(filePath);
     }
 
     /**
@@ -74,9 +69,7 @@ public class GitWrapper {
      * @return The SHA1 hash of the new commit.
      */
     public String commit(String author, String message) {
-        Git git = new Git();
-
-        return git.commit(author, message);
+        return commit(author, message);
     }
 
     /**
@@ -89,68 +82,6 @@ public class GitWrapper {
      * @param commitHash The SHA1 hash of the commit to check out.
      */
     public void checkout(String commitHash) {
-        Git git = new Git();
-
-        try {
-            ArrayList<String> oldIndexLines = new ArrayList<>(Files.readAllLines(Path.of("git/index")));
-
-            // generate new index (well, whatever's in the commit)
-            git.regenerateIndex(commitHash);
-            ArrayList<String> newIndexLines = new ArrayList<>(Files.readAllLines(Path.of("git/index")));
-
-            // delete files not tracked
-            for (String line : oldIndexLines) {
-                String[] parts = line.split(" ", 2);
-                String filePath = parts[1];
-
-                boolean found = false;
-
-                for (String newLine : newIndexLines) {
-                    String[] newParts = newLine.split(" ", 2);
-                    if (filePath.equals(newParts[1])) {
-                        found = true;
-                    }
-                }
-
-                if (!found) {
-                    Files.deleteIfExists(Path.of(filePath));
-
-                    // remove empty folders
-                    Path folder = Path.of(filePath).getParent();
-
-                    while (folder != null) {
-                        try {
-                            Files.delete(folder);
-                        } catch (Exception e) {
-                            break;
-                        }
-
-                        folder = folder.getParent();
-                    }
-                }
-            }
-
-            // restore files from commit we're checking out
-            for (String line : newIndexLines) {
-                String[] parts = line.split(" ", 2);
-                String hash = parts[0];
-                String filePath = parts[1];
-
-                Path origin = Path.of("git/objects/" + hash);
-                Path target = Path.of(filePath);
-
-                if (target.getParent() != null) {
-                    Files.createDirectories(target.getParent());
-                }
-
-                Files.copy(origin, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-
-            // update head
-            Files.writeString(Path.of("git/HEAD"), commitHash);
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        checkout(commitHash);
     }
 }
