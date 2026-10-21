@@ -1,4 +1,5 @@
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -26,9 +27,19 @@ public class FileHasher {
             String hexString = bytesToHex(encoded);
             return hexString;
         } catch (NoSuchAlgorithmException e) {
-            System.err.println("Error hashing file" + filePath);
-            e.printStackTrace();
-            return filePath;
+            throw new IllegalStateException("Error hashing file: " + filePath, e);
+        }
+    }
+
+    public static String hashString(String string) {
+
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-1");
+            byte[] encoded = digest.digest(string.getBytes(StandardCharsets.UTF_8));
+            
+            return bytesToHex(encoded);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("error hashing string: " + e);
         }
     }
 }
