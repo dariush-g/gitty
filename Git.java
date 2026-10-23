@@ -24,11 +24,12 @@ public class Git {
         // System.out.println();
 
         var git = new GitWrapper();
-
+        git.init();
+        git.add("README.md");
         git.commit("dariush", "hello");
     }
 
-    void add(String path_to_add) throws IOException {
+    public static void add(String path_to_add) throws IOException {
         var hash = FileHasher.hashFile(path_to_add);
         var path = Path.of("./git/objects/" + hash);
 
@@ -64,13 +65,13 @@ public class Git {
         }
     }
 
-    void init() throws IOException {
+    public static void init() throws IOException {
         Path path = Paths.get("git/");
         Path objects = Paths.get("./git/objects/");
         Path index = Paths.get("./git/index");
         Path head = Paths.get("./git/HEAD");
         Path ref = Paths.get("./git/refs/heads/");
-        Path mainBranch = Paths.get("./git/ref/main");
+        Path mainBranch = Paths.get("./git/refs/heads/main");
 
         if (Files.isDirectory(path) && Files.isDirectory(objects) && Files.exists(index)
                 && Files.exists(head) && Files.isDirectory(ref))
@@ -88,6 +89,7 @@ public class Git {
 
             if (!Files.exists(mainBranch)) {
                 Files.createFile(mainBranch);
+                Files.writeString(head, "ref: refs/heads/main");
             }
 
             if (!Files.exists(head)) {
@@ -443,19 +445,26 @@ public class Git {
             String date = LocalDate.now().toString();
             StringBuilder fileContents = new StringBuilder();
 
-            BufferedReader br = new BufferedReader(new FileReader("git/HEAD"));
-            String branch = br.readAllAsString();
+            var branchOrHash = Files.readString(Path.of("git/HEAD"));
+            String parent = null;
 
-            String head = Files.readAllLines(Path.of("git/" + branch)).get(0);
+            var possibleBranchRef = branchOrHash.split(" ");
 
-            String parent;
+            if (possibleBranchRef.length == 2) {
+                var branchPath = Path.of("git/" + possibleBranchRef[1]);
+                // System.out.println(branchPath);
+                var branchCommitHash = Files.readString(branchPath);
 
-            if (!head.equals("")) {
-                parent = head;
+                // if (branchCommitHash.length() == 0) {
+                // parent = null;
+                // } else {
+                // parent = branchCommitHash;
+                // }
+
+                parent = branchCommitHash.length() == 0 ? null : branchCommitHash;
             } else {
-                parent = null;
+                System.out.println("Detached head");
             }
-            br.close();
 
             if (parent == null) {
                 fileContents.append("tree: " + sha1 + "\nauthor: " + author + "\ndate: " + date
@@ -475,7 +484,7 @@ public class Git {
             fw.close();
 
             // update head after saving the commit
-            Files.writeString(Path.of("git/HEAD"), commitHash);
+            Files.writeString(Path.of("git/refs/heads/main"), commitHash);
 
             return commitHash;
 

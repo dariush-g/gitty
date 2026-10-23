@@ -11,15 +11,10 @@ public class GitWrapper {
      * Initializes a new Git repository.
      * This method creates the necessary directory structure
      * and initial files (index, HEAD) required for a Git repository.
+     * @throws IOException 
      */
-    public void init() {
-        Git git = new Git();
-
-        try {
-            git.init();
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+    public void init() throws IOException {
+        Git.init();
     }
 
     /**
@@ -33,8 +28,6 @@ public class GitWrapper {
      * @param filePath The path to the file to be staged.
      */
     public void add(String filePath) throws IOException {
-        Git git = new Git();
-
         Path path = Path.of(filePath);
 
         if (!Files.exists(path)) {
@@ -45,7 +38,7 @@ public class GitWrapper {
             throw new IOException("Can't add a directory: " + filePath);
         }
 
-        git.add(filePath);
+        Git.add(filePath);
     }
 
     /**
@@ -69,7 +62,7 @@ public class GitWrapper {
      * @return The SHA1 hash of the new commit.
      */
     public String commit(String author, String message) {
-        return commit(author, message);
+        return Git.commit(author, message);
     }
 
     /**
